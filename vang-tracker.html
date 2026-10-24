@@ -1,0 +1,2074 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Vàng Tracker — Nhẫn 999.9</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root {
+  --bg:     #111111;
+  --bg2:    #1A1A1A;
+  --bg3:    #222222;
+  --border: #2E2E2E;
+  --gold:   #D4A849;
+  --gold2:  #F0C866;
+  --gold3:  #5A4018;
+  --green:  #22D3A2;
+  --red:    #F05555;
+  --blue:   #60A5FA;
+  --text:   #F0F0F0;
+  --muted:  #808080;
+  --radius: 8px;
+  --sidebar: 220px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; }
+body {
+  background: var(--bg); color: var(--text);
+  font-family: 'Segoe UI', system-ui, sans-serif; font-size: 14px;
+  display: flex; height: 100vh; overflow: hidden;
+}
+
+/* ── SIDEBAR ── */
+.sidebar {
+  width: var(--sidebar); min-width: var(--sidebar);
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column;
+  height: 100vh; overflow: hidden;
+}
+.sidebar-logo {
+  padding: 20px 18px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.logo-icon { font-size: 20px; }
+.logo-title {
+  font-size: 15px; font-weight: 700; color: var(--gold);
+  letter-spacing: -0.3px; margin-top: 6px;
+}
+.logo-sub { font-size: 11px; color: var(--muted); margin-top: 2px; }
+
+.sidebar-nav { flex: 1; padding: 12px 10px; display: flex; flex-direction: column; gap: 2px; }
+.nav-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  color: var(--muted); font-size: 13px; font-weight: 500;
+  transition: all 0.15s; user-select: none; border: 1px solid transparent;
+}
+.nav-item:hover { background: var(--bg3); color: var(--text); }
+.nav-item.active {
+  background: rgba(240,180,41,0.1); color: var(--gold);
+  border-color: rgba(240,180,41,0.2);
+}
+.nav-icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto; background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1px 7px; font-size: 10px; color: var(--muted);
+}
+.nav-item.active .nav-badge { background: rgba(240,180,41,0.15); border-color: rgba(240,180,41,0.3); color: var(--gold); }
+
+.sidebar-bottom {
+  padding: 14px 10px;
+  border-top: 1px solid var(--border);
+}
+.signal-pill {
+  display: flex; align-items: center; gap: 8px;
+  padding: 10px 12px; border-radius: 8px;
+  font-size: 12px; font-weight: 600; border: 1px solid;
+  cursor: default;
+}
+.signal-pill.buy  { background: rgba(6,214,160,0.08); border-color: rgba(6,214,160,0.25); color: var(--green); }
+.signal-pill.sell { background: rgba(239,68,68,0.08); border-color: rgba(239,68,68,0.25); color: var(--red); }
+.signal-pill.hold { background: rgba(240,180,41,0.08); border-color: rgba(240,180,41,0.25); color: var(--gold); }
+.signal-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+.signal-dot.buy  { background: var(--green); box-shadow: 0 0 6px var(--green); }
+.signal-dot.sell { background: var(--red);   box-shadow: 0 0 6px var(--red); }
+.signal-dot.hold { background: var(--gold);  box-shadow: 0 0 6px var(--gold); }
+
+/* ── MAIN AREA ── */
+.app-main {
+  flex: 1; display: flex; flex-direction: column;
+  overflow: hidden; min-width: 0;
+}
+
+/* ── TOPBAR ── */
+.topbar {
+  background: var(--bg2); border-bottom: 1px solid var(--border);
+  padding: 10px 20px; display: flex; align-items: center;
+  justify-content: space-between; gap: 16px; flex-shrink: 0;
+}
+.topbar-title { font-size: 15px; font-weight: 600; color: var(--text); }
+.topbar-right { display: flex; align-items: center; gap: 12px; }
+.world-price-box {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 12px;
+  display: flex; align-items: center; gap: 10px;
+}
+.wpb-field { display: flex; flex-direction: column; gap: 1px; }
+.wpb-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; }
+.wpb-input {
+  background: transparent; border: none; color: var(--gold2);
+  font-size: 14px; font-weight: 600; width: 88px; outline: none;
+}
+.wpb-sep { width: 1px; height: 28px; background: var(--border); }
+#clock { font-size: 11px; color: var(--muted); white-space: nowrap; }
+
+/* ── PAGES ── */
+.page { display: none; flex: 1; overflow-y: auto; padding: 20px; }
+.page.active { display: block; }
+.page::-webkit-scrollbar { width: 5px; }
+.page::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+/* ── GRID LAYOUTS ── */
+.dash-grid {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+  align-items: start;
+}
+.rec-grid-main {
+  display: grid;
+  grid-template-columns: 1fr 300px;
+  gap: 16px;
+  align-items: start;
+}
+.col-left  { display: flex; flex-direction: column; gap: 14px; }
+.col-right { display: flex; flex-direction: column; gap: 14px; }
+
+/* ── CARDS ── */
+.card {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: var(--radius); overflow: hidden;
+}
+.card-header {
+  padding: 11px 16px; border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between;
+}
+.card-title {
+  font-size: 11px; font-weight: 600;
+  text-transform: uppercase; letter-spacing: 0.8px; color: var(--muted);
+}
+.card-body { padding: 16px; }
+
+/* ── METRICS ROW ── */
+.metrics-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.metric-card {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 12px 14px;
+}
+.metric-label { font-size: 10px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 6px; }
+.metric-value { font-size: 20px; font-weight: 700; line-height: 1; }
+.metric-sub   { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* ── SIGNAL BOX ── */
+.signal-box {
+  border-radius: var(--radius); padding: 14px 16px;
+  display: flex; align-items: flex-start; gap: 13px; border: 1px solid;
+}
+.signal-box.buy  { background: rgba(0,200,150,0.05); border-color: rgba(0,200,150,0.25); }
+.signal-box.sell { background: rgba(232,85,85,0.05); border-color: rgba(232,85,85,0.25); }
+.signal-box.hold { background: rgba(200,146,42,0.05); border-color: rgba(200,146,42,0.25); }
+.signal-icon  { font-size: 24px; line-height: 1; margin-top: 1px; flex-shrink: 0; }
+.signal-title { font-size: 14px; font-weight: 700; letter-spacing: 0.2px; }
+.signal-desc  { font-size: 11px; color: var(--muted); margin-top: 3px; line-height: 1.6; }
+
+/* ── PREMIUM GAUGE (signature element) ── */
+.prem-gauge-wrap {
+  margin-top: 11px; padding-top: 11px;
+  border-top: 1px solid rgba(255,255,255,0.05);
+}
+.prem-track {
+  position: relative; height: 4px; border-radius: 2px;
+  background: linear-gradient(to right,
+    var(--green)  0%,   var(--green)  30%,
+    var(--gold)   30%,  var(--gold)   60%,
+    var(--red)    60%
+  );
+  opacity: 0.85;
+}
+.prem-needle {
+  position: absolute; top: -6px;
+  width: 3px; height: 16px; background: var(--text);
+  border-radius: 2px; transform: translateX(-50%);
+  box-shadow: 0 0 8px rgba(0,0,0,0.7);
+  transition: left 0.7s cubic-bezier(0.4,0,0.2,1);
+}
+.prem-labels {
+  display: flex; justify-content: space-between;
+  margin-top: 5px; font-size: 9px; color: var(--muted); letter-spacing: 0.3px;
+}
+
+/* ── SHOP TABLE ── */
+.shop-table { width: 100%; border-collapse: collapse; }
+.shop-table th {
+  font-size: 10px; color: var(--muted); text-transform: uppercase;
+  letter-spacing: 0.4px; padding: 6px 10px; text-align: right;
+  border-bottom: 1px solid var(--border);
+}
+.shop-table th:first-child { text-align: left; }
+.shop-table td { padding: 10px; border-bottom: 1px solid #1c1c26; vertical-align: middle; white-space: nowrap; }
+.shop-table tr:last-child td { border-bottom: none; }
+.shop-table tr:hover td { background: rgba(255,255,255,0.02); }
+.shop-name { font-weight: 600; font-size: 13px; }
+.shop-tag  { font-size: 10px; color: var(--muted); margin-top: 2px; }
+.price-cell { text-align: right; }
+.price-input-wrap { display: flex; justify-content: flex-end; }
+.price-input {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 5px 8px; width: 108px; text-align: right;
+  font-size: 13px; outline: none; transition: border-color 0.18s;
+}
+.price-input:focus         { border-color: var(--gold3); }
+.price-input.buy-price:focus  { border-color: var(--green); }
+.price-input.sell-price:focus { border-color: rgba(239,68,68,0.6); }
+.spread-cell  { text-align: right; font-size: 12px; font-weight: 600; }
+.updated-cell { text-align: right; font-size: 10px; color: var(--muted); }
+.badge-best-buy  { background: rgba(6,214,160,0.13); color: var(--green); border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; }
+.badge-best-sell { background: rgba(239,68,68,0.13); color: var(--red);   border-radius: 4px; padding: 2px 6px; font-size: 9px; font-weight: 700; }
+
+/* ── RECOMMENDATION ── */
+.rec-pair { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.rec-item {
+  background: var(--bg3); border-radius: 8px; padding: 12px;
+  border: 1px solid var(--border);
+}
+.rec-label { font-size: 10px; text-transform: uppercase; letter-spacing: 0.4px; color: var(--muted); margin-bottom: 4px; }
+.rec-shop  { font-size: 14px; font-weight: 600; }
+.rec-price { font-size: 12px; color: var(--gold); margin-top: 3px; }
+
+/* ── PORTFOLIO STATS ── */
+.pstat { display: flex; justify-content: space-between; align-items: center; padding: 9px 0; border-bottom: 1px solid var(--border); }
+.pstat:last-child { border-bottom: none; }
+.pstat-label { font-size: 12px; color: var(--muted); }
+.pstat-value { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.pnl-bar  { height: 5px; background: var(--bg3); border-radius: 3px; overflow: hidden; margin-top: 10px; }
+.pnl-fill { height: 100%; border-radius: 3px; transition: width 0.5s; }
+
+/* ── CHART ── */
+.chart-wrap { position: relative; height: 190px; }
+
+/* ── INNER TABS (tx form) ── */
+.inner-tabs {
+  display: flex; gap: 2px; padding: 0 16px;
+  background: var(--bg); border-bottom: 1px solid var(--border);
+}
+.inner-tab {
+  padding: 9px 14px; font-size: 12px; cursor: pointer;
+  border-bottom: 2px solid transparent; color: var(--muted);
+  transition: all 0.15s; user-select: none;
+}
+.inner-tab.active { color: var(--gold); border-bottom-color: var(--gold); }
+.inner-tab-content { display: none; }
+.inner-tab-content.active { display: block; }
+
+/* ── FORMS ── */
+.tx-form { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.form-group { display: flex; flex-direction: column; gap: 5px; }
+.form-group.full { grid-column: 1 / -1; }
+.form-label { font-size: 11px; color: var(--muted); }
+.form-input, .form-select {
+  background: var(--bg3); border: 1px solid var(--border); border-radius: 6px;
+  color: var(--text); padding: 8px 10px; font-size: 13px; outline: none; width: 100%;
+  transition: border-color 0.18s;
+}
+.form-input:focus, .form-select:focus { border-color: var(--gold3); }
+.form-select option { background: var(--bg3); }
+
+/* ── BUTTONS ── */
+.btn-primary {
+  background: var(--gold); color: #0f0f13; font-weight: 700; border: none;
+  border-radius: 6px; padding: 9px 18px; cursor: pointer; font-size: 13px;
+  width: 100%; transition: background 0.18s;
+}
+.btn-primary:hover { background: var(--gold2); }
+.btn-sm {
+  background: var(--bg3); border: 1px solid var(--border); color: var(--muted);
+  border-radius: 6px; padding: 5px 10px; cursor: pointer; font-size: 11px;
+  transition: all 0.18s;
+}
+.btn-sm:hover { border-color: var(--gold3); color: var(--gold); }
+.btn-danger {
+  background: rgba(239,68,68,0.08); color: var(--red);
+  border: 1px solid rgba(239,68,68,0.25); border-radius: 4px;
+  padding: 3px 8px; cursor: pointer; font-size: 11px;
+}
+.btn-danger:hover { background: rgba(239,68,68,0.15); }
+
+/* ── TRANSACTION TABLE ── */
+.tx-table { width: 100%; border-collapse: collapse; }
+.tx-table th {
+  font-size: 10px; color: var(--muted); text-transform: uppercase;
+  padding: 6px 8px; border-bottom: 1px solid var(--border); text-align: right;
+}
+.tx-table th:first-child { text-align: left; }
+.tx-table td { padding: 9px 8px; border-bottom: 1px solid #1c1c26; font-size: 12px; text-align: right; vertical-align: middle; white-space: nowrap; }
+.tx-table td:first-child { text-align: left; }
+.tx-table tr:last-child td { border-bottom: none; }
+.tx-table tr:hover td { background: rgba(255,255,255,0.02); }
+.type-buy  { color: var(--green); font-weight: 700; font-size: 11px; }
+.type-sell { color: var(--red);   font-weight: 700; font-size: 11px; }
+.tx-empty  { text-align: center; color: var(--muted); padding: 32px; font-size: 13px; }
+
+/* ── RECORD PAGE LAYOUT ── */
+.record-grid {
+  display: grid; grid-template-columns: 1fr 300px; gap: 16px; align-items: start;
+}
+.record-left  { display: flex; flex-direction: column; gap: 14px; }
+.record-right { display: flex; flex-direction: column; gap: 14px; }
+
+/* ── SCROLLABLE ── */
+.table-scroll { overflow-x: auto; }
+.table-scroll::-webkit-scrollbar { height: 4px; }
+.table-scroll::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── UTIL ── */
+.color-gold  { color: var(--gold); }
+.color-green { color: var(--green); }
+.color-red   { color: var(--red); }
+.color-blue  { color: var(--blue); }
+.flex-row { display: flex; align-items: center; gap: 8px; }
+.empty-state {
+  text-align: center; padding: 40px 20px;
+  color: var(--muted); font-size: 13px; line-height: 1.8;
+}
+.empty-state .big { font-size: 32px; margin-bottom: 8px; }
+
+/* ── FETCH CONTROLS ── */
+.fetch-bar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+}
+.btn-fetch {
+  background: rgba(96,165,250,0.12); border: 1px solid rgba(96,165,250,0.3);
+  color: var(--blue); border-radius: 6px; padding: 5px 12px;
+  cursor: pointer; font-size: 12px; font-weight: 600; transition: all 0.18s;
+  white-space: nowrap;
+}
+.btn-fetch:hover { background: rgba(96,165,250,0.2); }
+.btn-fetch:disabled { opacity: 0.5; cursor: not-allowed; }
+.auto-select {
+  background: var(--bg3); border: 1px solid var(--border);
+  color: var(--muted); border-radius: 6px; padding: 5px 8px;
+  font-size: 11px; outline: none; cursor: pointer;
+}
+.auto-select option { background: var(--bg3); }
+.source-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px;
+}
+.source-item {
+  display: flex; align-items: center; gap: 7px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; padding: 7px 10px; font-size: 11px;
+}
+.src-dot { width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0; }
+.src-dot.ok     { background: var(--green); box-shadow: 0 0 5px var(--green); }
+.src-dot.fail   { background: var(--red); }
+.src-dot.loading{ background: var(--gold); animation: pulse 1s infinite; }
+.src-dot.hold   { background: var(--gold); opacity: 0.6; }
+.src-dot.idle   { background: var(--border); }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.src-name  { font-weight: 600; color: var(--text); }
+.src-status{ margin-left: auto; font-size: 10px; color: var(--muted); }
+.src-status.ok  { color: var(--green); }
+.src-status.fail{ color: var(--red); }
+.src-status.hold{ color: var(--gold); }
+
+/* ── REALTIME BANNER ── */
+.rt-banner {
+  background: rgba(96,165,250,0.07); border: 1px solid rgba(96,165,250,0.2);
+  border-radius: 8px; padding: 10px 14px;
+  display: flex; align-items: center; gap: 10px; font-size: 12px; color: var(--blue);
+}
+.rt-banner a { color: var(--blue); text-decoration: underline; cursor: pointer; }
+
+/* ── PRICE DISPLAY (read-only, replaces inputs) ── */
+.price-cell { text-align: right; }
+.price-display {
+  font-size: 14px; font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px; padding: 4px 2px;
+  display: inline-block; min-width: 60px; text-align: right;
+}
+.price-display.buy   { color: var(--green); }
+.price-display.sell  { color: var(--gold2); }
+.price-display.empty { color: var(--muted); font-weight: 400; }
+
+/* ── METRIC VALUE refinements ── */
+.metric-value { font-variant-numeric: tabular-nums; }
+
+/* ── CARD refinements ── */
+.card { border-radius: var(--radius); }
+.card-header { border-radius: var(--radius) var(--radius) 0 0; }
+
+/* ── TOPBAR refinements ── */
+.world-price-box { border-radius: var(--radius); }
+.wpb-input { font-variant-numeric: tabular-nums; }
+
+/* ── SHOP TABLE refinements ── */
+.shop-table td { padding: 9px 10px; }
+.shop-source { font-size: 9px; color: var(--muted); text-align: right; padding: 5px 14px 7px; border-top: 1px solid var(--border); letter-spacing: 0.2px; }
+
+/* ── SIGNAL PILL refinements ── */
+.signal-pill.buy  { background: rgba(0,200,150,0.08); border-color: rgba(0,200,150,0.25); color: var(--green); }
+.signal-pill.sell { background: rgba(232,85,85,0.08); border-color: rgba(232,85,85,0.25); color: var(--red); }
+.signal-pill.hold { background: rgba(200,146,42,0.08); border-color: rgba(200,146,42,0.25); color: var(--gold); }
+
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+/* ── SIGNAL HERO ── */
+.signal-hero {
+  display: flex; align-items: stretch; gap: 0;
+  border-radius: var(--radius); border: 1px solid;
+  overflow: hidden; margin-bottom: 14px; flex-shrink: 0;
+}
+.signal-hero.buy  { background: rgba(34,211,162,0.04); border-color: rgba(34,211,162,0.22); }
+.signal-hero.sell { background: rgba(240,85,85,0.04);  border-color: rgba(240,85,85,0.22); }
+.signal-hero.hold { background: rgba(212,168,73,0.04); border-color: rgba(212,168,73,0.22); }
+
+.sh-status { display: flex; align-items: flex-start; gap: 12px; padding: 14px 18px; flex: 1; min-width: 0; }
+.sh-icon   { font-size: 20px; line-height: 1; margin-top: 1px; flex-shrink: 0; }
+.sh-text   { min-width: 0; flex: 1; }
+.sh-title  { font-size: 13px; font-weight: 700; letter-spacing: 0.1px; }
+.sh-desc   { font-size: 11px; color: var(--muted); margin-top: 2px; line-height: 1.5; }
+.sh-rec {
+  margin-top: 9px; padding-top: 9px; border-top: 1px solid rgba(255,255,255,0.05);
+  font-size: 11px; display: flex; align-items: center; gap: 7px; flex-wrap: wrap;
+}
+.sh-rec strong    { color: var(--text); font-weight: 600; }
+.sh-rec-price     { color: var(--muted); }
+.sh-rec-buy-part  { color: var(--green); }
+.sh-rec-sell-part { color: var(--red); }
+.sh-rec-arrow     { color: var(--border); font-size: 14px; }
+
+.sh-gauge {
+  padding: 14px 20px; width: 190px; flex-shrink: 0;
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; justify-content: center;
+}
+.sh-gauge-label {
+  font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;
+  color: var(--muted); margin-bottom: 10px;
+}
+
+.sh-metrics { display: flex; align-items: stretch; flex-shrink: 0; }
+.sh-metric {
+  padding: 12px 16px; text-align: center; min-width: 96px;
+  border-left: 1px solid var(--border);
+  display: flex; flex-direction: column; justify-content: center;
+}
+.sh-metric-label { font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px; color: var(--muted); }
+.sh-metric-value { font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; margin-top: 4px; line-height: 1; }
+.sh-metric-sub   { font-size: 9px; color: var(--muted); margin-top: 3px; }
+
+/* ── BTN LINK ── */
+.btn-link {
+  background: none; border: none; color: var(--blue);
+  font-size: inherit; cursor: pointer; padding: 0; font-family: inherit;
+}
+.btn-link:hover { opacity: 0.8; }
+
+@media (max-width: 1024px) {
+  .signal-hero { flex-direction: column; }
+  .sh-gauge, .sh-metric { border-left: none; border-top: 1px solid var(--border); }
+  .sh-gauge { width: auto; }
+  .sh-metrics { flex-direction: row; flex-wrap: wrap; }
+}
+@media (max-width: 1024px) {
+  .dash-grid, .record-grid { grid-template-columns: 1fr; }
+  .metrics-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 700px) {
+  .sidebar { width: 60px; min-width: 60px; }
+  .sidebar-logo .logo-title, .sidebar-logo .logo-sub,
+  .nav-item span, .nav-badge, .sidebar-bottom .signal-pill span { display: none; }
+  .nav-item { justify-content: center; }
+  .sidebar-bottom .signal-pill { justify-content: center; padding: 10px; }
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════ SIDEBAR ═══════════════════════════════ -->
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <div class="logo-icon">⚜</div>
+    <div class="logo-title">Vàng Tracker</div>
+    <div class="logo-sub">Nhẫn 999.9</div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-item active" id="nav-dashboard" onclick="switchPage('dashboard')">
+      <span class="nav-icon">📊</span>
+      <span>Dashboard</span>
+    </div>
+    <div class="nav-item" id="nav-record" onclick="switchPage('record')">
+      <span class="nav-icon">📋</span>
+      <span>Record</span>
+      <span class="nav-badge" id="nav-tx-count">0</span>
+    </div>
+    <div class="nav-item" id="nav-market" onclick="switchPage('market')">
+      <span class="nav-icon">📈</span>
+      <span>Thị trường</span>
+    </div>
+  </nav>
+
+  <div class="sidebar-bottom">
+    <div class="signal-pill hold" id="sidebarSignal">
+      <div class="signal-dot hold" id="sidebarDot"></div>
+      <span id="sidebarSignalText">Chưa có dữ liệu</span>
+    </div>
+  </div>
+</aside>
+
+<!-- ═══════════════════════════════ MAIN AREA ═══════════════════════════════ -->
+<div class="app-main">
+
+  <!-- TOPBAR -->
+  <div class="topbar">
+    <div class="topbar-title" id="topbarTitle">Dashboard</div>
+    <div class="topbar-right">
+      <div class="world-price-box">
+        <div class="wpb-field">
+          <div class="wpb-label">XAU/USD (oz)</div>
+          <input class="wpb-input" type="number" id="worldPriceUSD" placeholder="3250" step="0.1">
+        </div>
+        <div class="wpb-sep"></div>
+        <div class="wpb-field">
+          <div class="wpb-label">USD/VND</div>
+          <input class="wpb-input" type="number" id="usdVnd" placeholder="25800" step="10">
+        </div>
+      </div>
+      <div class="fetch-bar">
+        <button class="btn-fetch" id="btnFetch" onclick="fetchAll()">🔄 Lấy giá</button>
+        <button class="btn-fetch" style="background:rgba(240,180,41,0.1);border-color:rgba(240,180,41,0.25);color:var(--gold)" onclick="showGasModal()" title="Cấu hình nguồn dữ liệu">⚙ Nguồn</button>
+        <select class="auto-select" id="autoRefreshSel" onchange="setAutoRefresh(this.value)" title="Tự động làm mới">
+          <option value="0">Tắt tự động</option>
+          <option value="5">5 phút</option>
+          <option value="10">10 phút</option>
+          <option value="30">30 phút</option>
+        </select>
+        <span id="lastFetchTime" style="font-size:10px;color:var(--muted)"></span>
+      </div>
+      <div id="clock"></div>
+    </div>
+  </div>
+
+  <!-- ════════════════ PAGE: DASHBOARD ════════════════ -->
+  <div class="page active" id="page-dashboard">
+
+    <!-- SIGNAL HERO (full-width, primary UI) -->
+    <div id="signalBox" class="signal-hero hold">
+
+      <!-- Status + description + recommendation -->
+      <div class="sh-status">
+        <div class="sh-icon" id="signalIcon">⚖</div>
+        <div class="sh-text">
+          <div class="sh-title" id="signalTitle">Chưa có dữ liệu</div>
+          <div class="sh-desc" id="signalDesc">Nhập giá vàng thế giới và giá ít nhất 1 cửa hàng để nhận tín hiệu</div>
+          <div class="sh-rec">
+            <span class="sh-rec-buy-part">Mua: <strong id="recBuyShop">—</strong> <span id="recBuyPrice" class="sh-rec-price"></span></span>
+            <span class="sh-rec-arrow">→</span>
+            <span class="sh-rec-sell-part">Bán: <strong id="recSellShop">—</strong> <span id="recSellPrice" class="sh-rec-price"></span></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Premium gauge -->
+      <div class="sh-gauge" id="premGaugeWrap" style="display:none">
+        <div class="sh-gauge-label">Premium vs thế giới</div>
+        <div class="prem-track">
+          <div class="prem-needle" id="premNeedle" style="left:0%"></div>
+        </div>
+        <div class="prem-labels">
+          <span>0%</span><span>3%</span><span>6%</span><span>10%+</span>
+        </div>
+      </div>
+
+      <!-- Inline metrics -->
+      <div class="sh-metrics">
+        <div class="sh-metric">
+          <div class="sh-metric-label">Giá thế giới</div>
+          <div class="sh-metric-value color-gold" id="worldVnd">—</div>
+          <div class="sh-metric-sub">tr/lượng</div>
+        </div>
+        <div class="sh-metric">
+          <div class="sh-metric-label">Premium TB</div>
+          <div class="sh-metric-value" id="premiumAvg">—</div>
+          <div class="sh-metric-sub">vs TG</div>
+        </div>
+        <div class="sh-metric">
+          <div class="sh-metric-label">Lãi / Lỗ</div>
+          <div class="sh-metric-value" id="totalPnl">—</div>
+          <div class="sh-metric-sub" id="totalPnlPct">portfolio</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- FETCH STATUS -->
+    <div id="fetchStatusBar" style="display:none;margin-bottom:12px" class="rt-banner">
+      <span id="fetchStatusIcon">⏳</span>
+      <span id="fetchStatusText">Đang lấy dữ liệu...</span>
+    </div>
+
+    <!-- MAIN GRID -->
+    <div class="dash-grid">
+      <div class="col-left">
+
+        <!-- SHOP TABLE -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Bảng giá nhẫn 999.9</div>
+            <div class="flex-row">
+              <span id="lastUpdated" style="font-size:10px;color:var(--muted)"></span>
+              <button class="btn-sm" onclick="stampNow()">⏱ Stamp</button>
+            </div>
+          </div>
+          <div class="table-scroll">
+            <table class="shop-table">
+              <thead>
+                <tr>
+                  <th>Cửa hàng</th>
+                  <th>Mua vào</th>
+                  <th>Bán ra</th>
+                  <th>Spread</th>
+                  <th>Premium</th>
+                  <th>Lúc</th>
+                </tr>
+              </thead>
+              <tbody id="shopTableBody"></tbody>
+            </table>
+            <div class="shop-source">
+              giavang.org · Nhẫn 999.9 · tr/lượng
+              · <button class="btn-link" onclick="fetchAll()">🔄 Cập nhật</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Hidden stubs for JS compat -->
+        <div style="display:none" aria-hidden="true">
+          <span id="bestSpread"></span>
+          <span id="bestSpreadShop"></span>
+          <div id="recNote"></div>
+        </div>
+
+      </div><!-- /col-left -->
+
+      <div class="col-right">
+
+        <!-- PORTFOLIO -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Danh mục</div>
+            <span style="font-size:10px;color:var(--muted)" id="dashHoldingLabel">0 chỉ nắm giữ</span>
+          </div>
+          <div class="card-body" style="padding:10px 16px">
+            <div class="pstat">
+              <span class="pstat-label">Đang nắm</span>
+              <span class="pstat-value color-gold" id="dashHoldingQty">—</span>
+            </div>
+            <div class="pstat">
+              <span class="pstat-label">Giá vốn TB</span>
+              <span class="pstat-value" id="dashAvgCost">—</span>
+            </div>
+            <div class="pstat">
+              <span class="pstat-label">Giá trị TT</span>
+              <span class="pstat-value color-gold" id="dashCurrentVal">—</span>
+            </div>
+            <div class="pstat">
+              <span class="pstat-label">Lãi/lỗ chưa TH</span>
+              <span class="pstat-value" id="dashUnrealizedPnl">—</span>
+            </div>
+            <div class="pnl-bar" style="margin-top:10px">
+              <div class="pnl-fill" id="pnlFill" style="width:0%;background:var(--green)"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px">
+              <span style="font-size:10px;color:var(--muted)">Vốn</span>
+              <span style="font-size:10px;color:var(--muted)" id="pnlPctLabel">—</span>
+            </div>
+            <div style="border-top:1px solid var(--border);margin-top:12px;padding-top:10px">
+              <div class="pstat">
+                <span class="pstat-label">Lãi đã thực hiện</span>
+                <span class="pstat-value" id="dashRealizedPnl">—</span>
+              </div>
+              <div class="pstat" style="border-bottom:none">
+                <span class="pstat-label">Tổng vốn bỏ ra</span>
+                <span class="pstat-value" id="dashTotalInvested">—</span>
+              </div>
+            </div>
+            <button class="btn-sm" style="width:100%;margin-top:10px;text-align:center" onclick="switchPage('record')">
+              Record →
+            </button>
+          </div>
+        </div>
+
+        <!-- CHART -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">So sánh cửa hàng</div></div>
+          <div class="card-body" style="padding:12px">
+            <div class="chart-wrap" style="height:160px"><canvas id="shopChart"></canvas></div>
+            <div id="chartEmpty" class="empty-state" style="display:none;padding:16px 0;font-size:12px">
+              <div style="font-size:24px;margin-bottom:6px">📊</div>Chưa có dữ liệu
+            </div>
+          </div>
+        </div>
+
+        <!-- SOURCE STATUS -->
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Nguồn dữ liệu</div>
+            <span id="srcLastUpdate" style="font-size:10px;color:var(--muted)"></span>
+          </div>
+          <div class="card-body" style="padding:10px 12px">
+            <div class="source-grid" id="sourceGrid"></div>
+          </div>
+        </div>
+
+      </div><!-- /col-right -->
+    </div><!-- /dash-grid -->
+  </div><!-- /page-dashboard -->
+
+  <!-- ════════════════ PAGE: RECORD ════════════════ -->
+  <div class="page" id="page-record">
+    <div class="record-grid">
+
+      <!-- LEFT: TRANSACTION MANAGEMENT -->
+      <div class="record-left">
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">Giao dịch vàng</div>
+            <span id="txCountBadge" style="font-size:10px;color:var(--muted)">0 giao dịch</span>
+          </div>
+          <div class="inner-tabs">
+            <div class="inner-tab active" id="itab-add" onclick="switchTxTab('add')">＋ Thêm mới</div>
+            <div class="inner-tab" id="itab-history" onclick="switchTxTab('history')">Lịch sử</div>
+          </div>
+          <div class="card-body">
+
+            <!-- ADD FORM -->
+            <div class="inner-tab-content active" id="itc-add">
+              <div class="tx-form">
+                <div class="form-group">
+                  <label class="form-label">Loại giao dịch</label>
+                  <select class="form-select" id="txType">
+                    <option value="buy">🟢 Mua vào</option>
+                    <option value="sell">🔴 Bán ra</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Ngày giao dịch</label>
+                  <input type="date" class="form-input" id="txDate">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Số lượng (chỉ)</label>
+                  <input type="number" class="form-input" id="txQty" placeholder="10" step="0.1" min="0.1">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Đơn giá (triệu/chỉ)</label>
+                  <input type="number" class="form-input" id="txPrice" placeholder="120.5" step="0.1" min="0">
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Cửa hàng</label>
+                  <select class="form-select" id="txShop">
+                    <option value="">— Chọn cửa hàng —</option>
+                    <option>SJC</option><option>DOJI</option><option>PNJ</option>
+                    <option>Bảo Tín Minh Châu</option><option>Mi Hồng</option>
+                    <option>Phú Quý</option><option>Bảo Tín Nghĩa</option>
+                    <option>Khác</option>
+                  </select>
+                </div>
+                <div class="form-group">
+                  <label class="form-label">Phí giao dịch (nghìn đồng)</label>
+                  <input type="number" class="form-input" id="txFee" placeholder="0" step="1" min="0" value="0">
+                </div>
+                <div class="form-group full">
+                  <label class="form-label">Ghi chú</label>
+                  <input type="text" class="form-input" id="txNote" placeholder="Ghi chú tuỳ chọn...">
+                </div>
+                <div class="form-group full" style="flex-direction:row;gap:8px">
+                  <button class="btn-primary" id="btnSubmitTx" onclick="addTransaction()" style="flex:1">✓ Lưu giao dịch</button>
+                  <button class="btn-sm" id="btnCancelEdit" onclick="cancelEdit()" style="display:none;padding:9px 16px;white-space:nowrap">✕ Huỷ</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- HISTORY -->
+            <div class="inner-tab-content" id="itc-history">
+              <div id="txHistoryWrap">
+                <div class="empty-state">
+                  <div class="big">📋</div>
+                  Chưa có giao dịch nào.<br>Thêm giao dịch đầu tiên ở tab "Thêm mới"
+                </div>
+              </div>
+            </div>
+
+          </div>
+        </div>
+
+      </div><!-- /record-left -->
+
+      <!-- RIGHT: PORTFOLIO -->
+      <div class="record-right">
+
+        <!-- FULL PORTFOLIO -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Danh mục vàng</div></div>
+          <div class="card-body">
+            <div class="pstat">
+              <span class="pstat-label">Đang nắm giữ</span>
+              <span class="pstat-value color-gold" id="holdingQty">0 chỉ</span>
+            </div>
+                <div class="pstat">
+              <span class="pstat-label">Giá vốn trung bình</span>
+              <span class="pstat-value" id="avgCost">—</span>
+            </div>
+            <div class="pstat">
+              <span class="pstat-label">Tổng vốn bỏ ra</span>
+              <span class="pstat-value" id="totalCost">—</span>
+            </div>
+            <div class="pstat">
+              <span class="pstat-label">Giá trị hiện tại</span>
+              <span class="pstat-value color-gold" id="currentVal">—</span>
+            </div>
+            <div class="pstat" style="border-bottom:none">
+              <span class="pstat-label">Lãi/lỗ chưa thực hiện</span>
+              <span class="pstat-value" id="unrealizedPnl">—</span>
+            </div>
+            <div class="pnl-bar" style="margin-top:12px">
+              <div class="pnl-fill" id="pnlFill2" style="width:0%;background:var(--green)"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px">
+              <span style="font-size:10px;color:var(--muted)">Vốn</span>
+              <span style="font-size:10px;color:var(--muted)" id="pnlPctLabel2">—</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- REALIZED -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Lãi/lỗ đã thực hiện</div></div>
+          <div class="card-body">
+            <div class="pstat">
+              <span class="pstat-label">Đã bán</span>
+              <span class="pstat-value" id="soldQty">0 chỉ</span>
+            </div>
+            <div class="pstat">
+              <span class="pstat-label">Doanh thu</span>
+              <span class="pstat-value" id="soldRevenue">—</span>
+            </div>
+            <div class="pstat" style="border-bottom:none">
+              <span class="pstat-label">Lãi/lỗ ròng (FIFO)</span>
+              <span class="pstat-value" id="realizedPnl">0 triệu</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- SUMMARY STATS -->
+        <div class="card">
+          <div class="card-header"><div class="card-title">Thống kê tổng</div></div>
+          <div class="card-body">
+            <div class="pstat">
+              <span class="pstat-label">Tổng đã mua</span>
+              <span class="pstat-value" id="statTotalBuy">0 chỉ</span>
+            </div>
+            <div class="pstat">
+              <span class="pstat-label">Số lần giao dịch mua</span>
+              <span class="pstat-value" id="statBuyCount">0</span>
+            </div>
+            <div class="pstat">
+              <span class="pstat-label">Số lần giao dịch bán</span>
+              <span class="pstat-value" id="statSellCount">0</span>
+            </div>
+            <div class="pstat" style="border-bottom:none">
+              <span class="pstat-label">Lãi/lỗ tổng (thực + chưa thực)</span>
+              <span class="pstat-value" id="statTotalPnl">—</span>
+            </div>
+          </div>
+        </div>
+
+      </div><!-- /record-right -->
+    </div><!-- /record-grid -->
+  </div><!-- /page-record -->
+
+  <!-- ════════════════ PAGE: MARKET ════════════════ -->
+  <div class="page" id="page-market">
+    <div style="max-width:900px">
+
+      <!-- PRICE CARDS -->
+      <div class="metrics-row" style="margin-bottom:14px" id="mktCards">
+        <div class="metric-card">
+          <div class="metric-label" style="display:flex;align-items:center;gap:6px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--gold)"></span>
+            Vàng miếng SJC
+          </div>
+          <div class="metric-value color-gold" id="mktPriceSjc">—</div>
+          <div class="metric-sub">VNĐ/lượng (bán ra)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label" style="display:flex;align-items:center;gap:6px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--blue)"></span>
+            Vàng nhẫn SJC
+          </div>
+          <div class="metric-value color-blue" id="mktPriceNhan">—</div>
+          <div class="metric-sub">VNĐ/lượng (bán ra)</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label" style="display:flex;align-items:center;gap:6px">
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--green)"></span>
+            Vàng thế giới (quy VNĐ)
+          </div>
+          <div class="metric-value color-green" id="mktPriceWorld">—</div>
+          <div class="metric-sub">VNĐ/lượng</div>
+        </div>
+        <div class="metric-card">
+          <div class="metric-label">Premium SJC</div>
+          <div class="metric-value" id="mktPremium">—</div>
+          <div class="metric-sub">so giá thế giới</div>
+        </div>
+      </div>
+
+      <!-- CHART CARD -->
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">Biểu đồ giá vàng — Simplize</div>
+          <div style="display:flex;align-items:center;gap:10px">
+            <!-- Period buttons -->
+            <div style="display:flex;gap:3px;background:var(--bg);border-radius:6px;padding:3px">
+              <button class="btn-sm mkt-period active" data-p="1M" onclick="mktSetPeriod(this,'1M')">1T</button>
+              <button class="btn-sm mkt-period" data-p="3M" onclick="mktSetPeriod(this,'3M')">3T</button>
+              <button class="btn-sm mkt-period" data-p="6M" onclick="mktSetPeriod(this,'6M')">6T</button>
+              <button class="btn-sm mkt-period" data-p="1y" onclick="mktSetPeriod(this,'1y')">1N</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Legend -->
+        <div style="padding:10px 16px;border-bottom:1px solid var(--border);display:flex;gap:16px;flex-wrap:wrap">
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer" onclick="mktToggle(0,this)">
+            <div style="width:20px;height:2px;background:var(--gold);border-radius:2px"></div>Vàng miếng SJC
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer" onclick="mktToggle(1,this)">
+            <div style="width:20px;height:2px;background:var(--blue);border-radius:2px"></div>Vàng nhẫn SJC
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--muted);cursor:pointer" onclick="mktToggle(2,this)">
+            <div style="width:20px;height:2px;background:var(--green);border-radius:2px"></div>Vàng TG (quy VNĐ)
+          </div>
+        </div>
+
+        <div class="card-body" style="padding:16px">
+          <div id="mktLoading" style="display:flex;align-items:center;gap:10px;color:var(--muted);font-size:13px;padding:60px 0;justify-content:center">
+            <div style="width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--gold);border-radius:50%;animation:spin 0.7s linear infinite"></div>
+            Đang tải dữ liệu từ Simplize...
+          </div>
+          <div style="position:relative;height:300px;display:none" id="mktChartWrap">
+            <canvas id="mktChart"></canvas>
+          </div>
+        </div>
+        <div style="padding:6px 16px 10px;font-size:10px;color:var(--muted);text-align:right;border-top:1px solid var(--border)">
+          Nguồn: <a href="https://simplize.vn/gia-vang" target="_blank" style="color:var(--muted)">simplize.vn</a> · Đơn vị: VNĐ/lượng
+        </div>
+      </div>
+
+    </div>
+
+    <!-- PREMIUM TRACKING TABLE -->
+    <div class="card" style="margin-top:14px" id="mktPremCard">
+      <div class="card-header">
+        <div class="card-title">Chênh lệch vàng trong nước vs thế giới</div>
+        <div style="display:flex;gap:3px;background:var(--bg);border-radius:6px;padding:3px">
+          <button class="btn-sm mkt-prem-tab active" onclick="mktPremTab(this,'year')">Năm</button>
+          <button class="btn-sm mkt-prem-tab" onclick="mktPremTab(this,'month')">Tháng</button>
+          <button class="btn-sm mkt-prem-tab" onclick="mktPremTab(this,'week')">Tuần</button>
+        </div>
+      </div>
+
+      <!-- ATH / ATL summary -->
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:10px;padding:14px 16px;border-bottom:1px solid var(--border)" id="mktAthlRow">
+        <div class="metric-card" style="padding:10px 14px">
+          <div class="metric-label">🏆 ATH Chênh lệch</div>
+          <div class="metric-value" id="athVnd" style="font-size:15px">—</div>
+          <div class="metric-sub" id="athVndDate">—</div>
+        </div>
+        <div class="metric-card" style="padding:10px 14px">
+          <div class="metric-label">📉 ATL Chênh lệch</div>
+          <div class="metric-value" id="atlVnd" style="font-size:15px">—</div>
+          <div class="metric-sub" id="atlVndDate">—</div>
+        </div>
+        <div class="metric-card" style="padding:10px 14px">
+          <div class="metric-label">🏆 ATH Premium %</div>
+          <div class="metric-value color-red" id="athPct" style="font-size:15px">—</div>
+          <div class="metric-sub" id="athPctDate">—</div>
+        </div>
+        <div class="metric-card" style="padding:10px 14px">
+          <div class="metric-label">📉 ATL Premium %</div>
+          <div class="metric-value color-green" id="atlPct" style="font-size:15px">—</div>
+          <div class="metric-sub" id="atlPctDate">—</div>
+        </div>
+      </div>
+
+      <!-- Table -->
+      <div class="card-body" style="padding:0">
+        <div id="mktPremLoading" style="padding:40px;text-align:center;color:var(--muted);font-size:13px">
+          <div style="width:18px;height:18px;border:2px solid var(--border);border-top-color:#f0b429;border-radius:50%;animation:spin 0.7s linear infinite;margin:0 auto 10px"></div>
+          Đang tải dữ liệu lịch sử...
+        </div>
+        <div id="mktPremTableWrap" style="display:none">
+          <div class="table-scroll">
+            <table class="shop-table" id="mktPremTableEl" style="min-width:640px">
+              <thead id="mktPremThead"></thead>
+              <tbody id="mktPremTbody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div style="padding:6px 16px 10px;font-size:10px;color:var(--muted);text-align:right;border-top:1px solid var(--border)">
+        Dữ liệu: <a href="https://simplize.vn/gia-vang" target="_blank" style="color:var(--muted)">simplize.vn</a> · Chênh lệch = Giá VN (bán ra) − Giá TG quy VNĐ · Đơn vị VNĐ/lượng
+      </div>
+    </div>
+
+  </div><!-- /page-market -->
+
+</div><!-- /app-main -->
+
+
+<script>
+// ═══════════════════════════════════════════════════════════════
+// DATA LAYER
+// ═══════════════════════════════════════════════════════════════
+const SHOPS = [
+  { id: 'sjc',  name: 'SJC',               tag: 'Công ty Vàng bạc Đá quý SJC' },
+  { id: 'doji', name: 'DOJI',              tag: 'Tập đoàn DOJI' },
+  { id: 'pnj',  name: 'PNJ',               tag: 'Công ty Vàng bạc PNJ' },
+  { id: 'btmc', name: 'Bảo Tín Minh Châu', tag: 'Bảo Tín Minh Châu' },
+  { id: 'mh',   name: 'Mi Hồng',           tag: 'Tiệm vàng Mi Hồng' },
+  { id: 'pq',   name: 'Phú Quý',           tag: 'Vàng bạc Phú Quý' },
+  { id: 'btn',  name: 'Bảo Tín Nghĩa',     tag: 'Bảo Tín Nghĩa' },
+];
+
+function ls(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch { return d; } }
+function ss(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+
+let prices   = ls('vt_prices', {});
+let txList   = ls('vt_tx', []);
+let worldUSD = ls('vt_wusd', 0);
+let usdVnd   = ls('vt_usdvnd', 25800);
+
+// ═══════════════════════════════════════════════════════════════
+// PRICE SEED — tự động cập nhật bởi Claude (không sửa tay)
+// ═══════════════════════════════════════════════════════════════
+    // Giá seed cập nhật: 24/10/2026 12:55 từ giavang.org
+const SEED_PRICES = {
+  sjc:  { buy: 135.0, sell: 139.0, ts: 0 },
+  doji: { buy: 137.2, sell: 141.2, ts: 0 },
+  pnj:  { buy: 138.0, sell: 141.0, ts: 0 },
+  btmc: { buy: 137.1, sell: 141.1, ts: 0 },
+  mh:   { buy: 140.2, sell: 141.7, ts: 0 },
+  pq:   { buy: 137.7, sell: 140.7, ts: 0 },
+  btn:  { buy: 137.1, sell: 141.1, ts: 0 },
+};
+const SEED_WORLD_USD  = 4199.0;
+const SEED_USDVND     = 25831;
+const SEED_VERSION    = '20261024_1255'; // bump mỗi lần Claude update seed
+
+function seedIfEmpty() {
+  // Force-apply nếu seed mới hơn lần lưu trước
+  const storedVer = ls('vt_seed_ver', '');
+  const seedNewer = storedVer !== SEED_VERSION;
+
+  if (!worldUSD || worldUSD < 100 || seedNewer) {
+    worldUSD = SEED_WORLD_USD; ss('vt_wusd', worldUSD);
+    document.getElementById('worldPriceUSD').value = worldUSD;
+  }
+  if (!usdVnd || usdVnd < 10000 || seedNewer) {
+    usdVnd = SEED_USDVND; ss('vt_usdvnd', usdVnd);
+    document.getElementById('usdVnd').value = usdVnd;
+  }
+
+  const hasRealData = !seedNewer && SHOPS.some(s => {
+    const p = prices[s.id];
+    return p && p.buy > 50 && p.buy < 500 && p.ts > 0;
+  });
+
+  if (!hasRealData) {
+    prices = JSON.parse(JSON.stringify(SEED_PRICES));
+    Object.keys(prices).forEach(id => { prices[id].ts = Date.now() - 3600000; });
+    ss('vt_prices', prices);
+    ss('vt_seed_ver', SEED_VERSION);
+    document.getElementById('lastUpdated').textContent = 'Seed: giavang.org ' + SEED_VERSION.replace('_',' ');
+    SHOPS.forEach(s => setSrcState(s.id, 'hold', 'seed'));
+  } else {
+    ss('vt_seed_ver', SEED_VERSION);
+  }
+}
+
+// ═══════════════════════════════════════════════════════════════
+// CORE APP LOGIC (rebuilt) — helpers, render, portfolio, fetch
+// ═══════════════════════════════════════════════════════════════
+const OZ_PER_LUONG = 1.2057;        // 1 lượng = 37.5g = 1.2057 troy oz
+let gasUrl = '';
+try { gasUrl = localStorage.getItem('vt_gasUrl') || ''; } catch {}
+let editingId = null;
+let shopChart = null;
+let autoTimer = null;
+let marketLoaded = false;
+
+const $ = id => document.getElementById(id);
+const fmtNum = (n, d = 1) => Number(n).toLocaleString('vi-VN', { minimumFractionDigits: d, maximumFractionDigits: d });
+const fmtTr  = (n, d = 2) => (n < 0 ? '-' : '') + fmtNum(Math.abs(n), d) + ' tr';
+const fmtSigned = (n, d = 2) => (n > 0 ? '+' : n < 0 ? '-' : '') + fmtNum(Math.abs(n), d) + ' tr';
+const pad2 = n => String(n).padStart(2, '0');
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+function fmtTime(ts) {
+  if (!ts) return '—';
+  const d = new Date(ts), n = new Date();
+  const hm = pad2(d.getHours()) + ':' + pad2(d.getMinutes());
+  return d.toDateString() === n.toDateString() ? hm : pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + ' ' + hm;
+}
+function pnlColor(n) { return n > 0 ? 'var(--green)' : n < 0 ? 'var(--red)' : 'var(--text)'; }
+function premColorVar(p) { return p < 3 ? 'var(--green)' : p < 6 ? 'var(--gold)' : 'var(--red)'; }
+
+function cleanPrices() {
+  const ids = SHOPS.map(s => s.id);
+  const out = {};
+  ids.forEach(id => {
+    const p = prices[id];
+    if (p && p.buy > 50 && p.buy < 500 && p.sell > 50 && p.sell < 500) out[id] = p;
+  });
+  prices = out;
+  ss('vt_prices', prices);
+}
+
+// ── Source status grid ──────────────────────────────────────────
+function ensureSourceGrid() {
+  const g = $('sourceGrid');
+  if (g && !g.children.length) {
+    g.innerHTML = SHOPS.map(s => `<div class="source-item"><span class="src-dot idle" id="srcdot-${s.id}"></span><span class="src-name">${esc(s.name)}</span><span class="src-status" id="srcst-${s.id}">—</span></div>`).join('');
+  }
+}
+function setSrcState(id, state, text) {
+  ensureSourceGrid();
+  const d = $('srcdot-' + id), t = $('srcst-' + id);
+  if (!d || !t) return;
+  d.className = 'src-dot ' + state;
+  t.className = 'src-status ' + state;
+  t.textContent = text || '';
+}
+
+// ── World price helpers ─────────────────────────────────────────
+function worldVndTr() {
+  if (!worldUSD || !usdVnd) return 0;
+  return worldUSD * OZ_PER_LUONG * usdVnd / 1e6;   // triệu đồng / lượng
+}
+
+// ── Rendering: dashboard ────────────────────────────────────────
+function shopRows() {
+  return SHOPS.map(s => ({ ...s, p: prices[s.id] })).filter(r => r.p && r.p.buy > 0 && r.p.sell > 0);
+}
+
+function renderShopTable() {
+  const rows = shopRows();
+  const w = worldVndTr();
+  const body = $('shopTableBody');
+  const minSell = rows.length ? Math.min(...rows.map(r => r.p.sell)) : null;
+  const maxBuy  = rows.length ? Math.max(...rows.map(r => r.p.buy)) : null;
+  body.innerHTML = SHOPS.map(s => {
+    const p = prices[s.id];
+    if (!p) return `<tr><td><div class="shop-name">${esc(s.name)}</div><div class="shop-tag">${esc(s.tag)}</div></td><td class="price-cell"><span class="price-display empty">—</span></td><td class="price-cell"><span class="price-display empty">—</span></td><td class="spread-cell">—</td><td class="spread-cell">—</td><td class="updated-cell">—</td></tr>`;
+    const spread = p.sell - p.buy, spreadPct = spread / p.sell * 100;
+    const prem = w ? (p.sell / w - 1) * 100 : null;
+    const bestBuy  = p.buy === maxBuy ? ' <span class="badge-best-sell">GIÁ MUA CAO NHẤT</span>' : '';
+    const bestSell = p.sell === minSell ? ' <span class="badge-best-buy">GIÁ BÁN THẤP NHẤT</span>' : '';
+    return `<tr>
+      <td><div class="shop-name">${esc(s.name)}</div><div class="shop-tag">${esc(s.tag)}</div></td>
+      <td class="price-cell"><span class="price-display buy">${fmtNum(p.buy)}</span><div style="text-align:right">${bestBuy}</div></td>
+      <td class="price-cell"><span class="price-display sell">${fmtNum(p.sell)}</span><div style="text-align:right">${bestSell}</div></td>
+      <td class="spread-cell" style="color:${spreadPct < 2 ? 'var(--green)' : spreadPct < 3.5 ? 'var(--gold)' : 'var(--red)'}">${fmtNum(spread)} <span style="font-weight:400;color:var(--muted)">(${fmtNum(spreadPct)}%)</span></td>
+      <td class="spread-cell" style="color:${prem == null ? 'var(--muted)' : premColorVar(prem)}">${prem == null ? '—' : (prem > 0 ? '+' : '') + fmtNum(prem) + '%'}</td>
+      <td class="updated-cell">${fmtTime(p.ts)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function setSignal(kind, icon, title, desc) {
+  $('signalBox').className = 'signal-hero ' + kind;
+  $('signalIcon').textContent = icon;
+  $('signalTitle').textContent = title;
+  $('signalDesc').textContent = desc;
+  $('sidebarSignal').className = 'signal-pill ' + kind;
+  $('sidebarDot').className = 'signal-dot ' + kind;
+  $('sidebarSignalText').textContent = title;
+}
+
+function renderSignal() {
+  const rows = shopRows();
+  const w = worldVndTr();
+  const gauge = $('premGaugeWrap');
+  if (!rows.length || !w) {
+    setSignal('hold', '⚖', 'Chưa có dữ liệu', 'Nhập giá vàng thế giới và giá ít nhất 1 cửa hàng để nhận tín hiệu');
+    gauge.style.display = 'none';
+    $('worldVnd').textContent = w ? fmtNum(w) + ' tr' : '—';
+    $('premiumAvg').textContent = '—'; $('premiumAvg').style.color = '';
+    $('recBuyShop').textContent = '—'; $('recSellShop').textContent = '—';
+    $('recBuyPrice').textContent = ''; $('recSellPrice').textContent = '';
+    return;
+  }
+  const avgPrem = rows.reduce((a, r) => a + (r.p.sell / w - 1) * 100, 0) / rows.length;
+  const bestBuy  = rows.reduce((a, r) => r.p.sell < a.p.sell ? r : a);   // mua rẻ nhất
+  const bestSell = rows.reduce((a, r) => r.p.buy  > a.p.buy  ? r : a);   // bán được giá cao nhất
+  if (avgPrem < 3)      setSignal('buy',  '🟢', 'Thuận lợi để MUA', `Premium TB ${fmtNum(avgPrem)}% — vàng trong nước gần giá thế giới.`);
+  else if (avgPrem < 6) setSignal('hold', '🟡', 'Quan sát / Giữ', `Premium TB ${fmtNum(avgPrem)}% — mức trung bình, chưa có lợi thế rõ rệt.`);
+  else                  setSignal('sell', '🔴', 'Premium cao — cân nhắc BÁN', `Premium TB ${fmtNum(avgPrem)}% — vàng trong nước đắt hơn đáng kể so với thế giới.`);
+  $('recBuyShop').textContent = bestBuy.name;   $('recBuyPrice').textContent = '@ ' + fmtNum(bestBuy.p.sell) + ' tr';
+  $('recSellShop').textContent = bestSell.name; $('recSellPrice').textContent = '@ ' + fmtNum(bestSell.p.buy) + ' tr';
+  gauge.style.display = '';
+  $('premNeedle').style.left = Math.max(0, Math.min(100, avgPrem / 10 * 100)) + '%';
+  $('worldVnd').textContent = fmtNum(w) + ' tr';
+  const pe = $('premiumAvg'); pe.textContent = (avgPrem > 0 ? '+' : '') + fmtNum(avgPrem) + '%'; pe.style.color = premColorVar(avgPrem);
+}
+
+function renderShopChart() {
+  const rows = shopRows();
+  const canvas = $('shopChart'), empty = $('chartEmpty');
+  if (!rows.length || typeof Chart === 'undefined') {
+    canvas.parentElement.style.display = 'none'; empty.style.display = 'block';
+    if (shopChart) { shopChart.destroy(); shopChart = null; }
+    return;
+  }
+  canvas.parentElement.style.display = ''; empty.style.display = 'none';
+  const labels = rows.map(r => r.name.replace('Bảo Tín ', 'BT '));
+  const buy = rows.map(r => r.p.buy), sell = rows.map(r => r.p.sell);
+  const all = buy.concat(sell), lo = Math.floor(Math.min(...all) - 1), hi = Math.ceil(Math.max(...all) + 1);
+  if (shopChart) {
+    shopChart.data.labels = labels; shopChart.data.datasets[0].data = buy; shopChart.data.datasets[1].data = sell;
+    shopChart.options.scales.y.min = lo; shopChart.options.scales.y.max = hi; shopChart.update();
+    return;
+  }
+  shopChart = new Chart(canvas.getContext('2d'), {
+    type: 'bar',
+    data: { labels, datasets: [
+      { label: 'Mua vào', data: buy,  backgroundColor: 'rgba(34,211,162,0.75)', borderRadius: 3 },
+      { label: 'Bán ra',  data: sell, backgroundColor: 'rgba(212,168,73,0.8)',  borderRadius: 3 },
+    ] },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { labels: { color: '#808080', boxWidth: 10, font: { size: 10 } } } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#808080', font: { size: 9 } } },
+        y: { min: lo, max: hi, grid: { color: '#222' }, ticks: { color: '#808080', font: { size: 9 } } },
+      },
+    },
+  });
+}
+
+// ── Portfolio (FIFO) ────────────────────────────────────────────
+function computePortfolio() {
+  const list = txList.slice().sort((a, b) => (a.date || '').localeCompare(b.date || '') || a.id - b.id);
+  const lots = [];                       // {qty, unit}  unit = triệu/chỉ (đã gồm phí)
+  let totalBuyQty = 0, totalInvested = 0, soldQty = 0, revenue = 0, realized = 0, buyCount = 0, sellCount = 0;
+  list.forEach(t => {
+    const fee = (Number(t.fee) || 0) / 1000;        // nghìn đ → triệu
+    if (t.type === 'buy') {
+      buyCount++; totalBuyQty += t.qty;
+      const cost = t.qty * t.price + fee;
+      totalInvested += cost;
+      lots.push({ qty: t.qty, unit: cost / t.qty });
+    } else {
+      sellCount++; soldQty += t.qty;
+      const proceeds = t.qty * t.price - fee;
+      revenue += proceeds;
+      let need = t.qty, costBasis = 0;
+      while (need > 1e-9 && lots.length) {
+        const l = lots[0], take = Math.min(l.qty, need);
+        costBasis += take * l.unit; l.qty -= take; need -= take;
+        if (l.qty <= 1e-9) lots.shift();
+      }
+      realized += proceeds - costBasis;
+    }
+  });
+  const holdQty = lots.reduce((a, l) => a + l.qty, 0);
+  const holdCost = lots.reduce((a, l) => a + l.qty * l.unit, 0);
+  const rows = shopRows();
+  const bestBuy = rows.length ? Math.max(...rows.map(r => r.p.buy)) : 0;      // triệu/lượng
+  const curVal = holdQty * bestBuy / 10;                                     // triệu
+  const hasPrice = rows.length > 0;
+  const unreal = hasPrice ? curVal - holdCost : 0;
+  return { holdQty, holdCost, avgCost: holdQty ? holdCost / holdQty : 0, curVal, hasPrice, unreal,
+           unrealPct: holdCost ? unreal / holdCost * 100 : 0, realized, soldQty, revenue,
+           totalBuyQty, totalInvested, buyCount, sellCount, count: list.length };
+}
+function holdingAt(dateStr, excludeId) {
+  let q = 0;
+  txList.filter(t => t.id !== excludeId && (t.date || '') <= dateStr).forEach(t => { q += t.type === 'buy' ? t.qty : -t.qty; });
+  return q;
+}
+
+function renderPortfolio() {
+  const P = computePortfolio();
+  const set = (id, txt, color) => { const e = $(id); if (e) { e.textContent = txt; if (color !== undefined) e.style.color = color; } };
+  const qtyTxt = P.holdQty ? fmtNum(P.holdQty, 1) + ' chỉ' : '0 chỉ';
+  const dash = v => P.holdQty ? v : '—';
+  $('dashHoldingLabel').textContent = fmtNum(P.holdQty, 1) + ' chỉ nắm giữ';
+  set('dashHoldingQty', P.holdQty ? fmtNum(P.holdQty, 1) + ' chỉ' : '—');
+  set('dashAvgCost', dash(fmtNum(P.avgCost) + ' tr/chỉ'));
+  set('dashCurrentVal', P.holdQty && P.hasPrice ? fmtTr(P.curVal) : '—');
+  const uTxt = P.holdQty && P.hasPrice ? fmtSigned(P.unreal) : '—';
+  set('dashUnrealizedPnl', uTxt, P.holdQty && P.hasPrice ? pnlColor(P.unreal) : '');
+  set('dashRealizedPnl', P.soldQty ? fmtSigned(P.realized) : '—', P.soldQty ? pnlColor(P.realized) : '');
+  set('dashTotalInvested', P.totalInvested ? fmtTr(P.totalInvested) : '—');
+  const pctTxt = P.holdQty && P.hasPrice ? (P.unrealPct > 0 ? '+' : '') + fmtNum(P.unrealPct) + '%' : '—';
+  [['pnlFill', 'pnlPctLabel'], ['pnlFill2', 'pnlPctLabel2']].forEach(([f, l]) => {
+    $(f).style.width = Math.min(100, Math.abs(P.holdQty && P.hasPrice ? P.unrealPct : 0)) + '%';
+    $(f).style.background = P.unreal >= 0 ? 'var(--green)' : 'var(--red)';
+    $(l).textContent = pctTxt;
+  });
+  // hero metric
+  const total = P.realized + (P.holdQty && P.hasPrice ? P.unreal : 0);
+  set('totalPnl', P.count ? fmtSigned(total) : '—', P.count ? pnlColor(total) : '');
+  $('totalPnlPct').textContent = P.totalInvested ? (total / P.totalInvested * 100 > 0 ? '+' : '') + fmtNum(total / P.totalInvested * 100) + '% vốn' : 'portfolio';
+  // record page
+  set('holdingQty', qtyTxt);
+  set('avgCost', dash(fmtNum(P.avgCost) + ' tr/chỉ'));
+  set('totalCost', P.totalInvested ? fmtTr(P.totalInvested) : '—');
+  set('currentVal', P.holdQty && P.hasPrice ? fmtTr(P.curVal) : '—');
+  set('unrealizedPnl', uTxt, P.holdQty && P.hasPrice ? pnlColor(P.unreal) : '');
+  set('soldQty', fmtNum(P.soldQty, 1) + ' chỉ');
+  set('soldRevenue', P.soldQty ? fmtTr(P.revenue) : '—');
+  set('realizedPnl', fmtSigned(P.realized), pnlColor(P.realized));
+  set('statTotalBuy', fmtNum(P.totalBuyQty, 1) + ' chỉ');
+  set('statBuyCount', String(P.buyCount));
+  set('statSellCount', String(P.sellCount));
+  set('statTotalPnl', P.count ? fmtSigned(total) : '—', P.count ? pnlColor(total) : '');
+  $('nav-tx-count').textContent = P.count;
+  $('txCountBadge').textContent = P.count + ' giao dịch';
+}
+
+// ── Transactions ────────────────────────────────────────────────
+function todayStr() { const d = new Date(); return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+function resetTxForm() {
+  editingId = null;
+  $('txType').value = 'buy'; $('txDate').value = todayStr();
+  $('txQty').value = ''; $('txPrice').value = ''; $('txShop').value = ''; $('txFee').value = '0'; $('txNote').value = '';
+  $('btnSubmitTx').textContent = '✓ Lưu giao dịch'; $('btnCancelEdit').style.display = 'none';
+}
+function cancelEdit() { resetTxForm(); }
+function switchTxTab(tab) {
+  ['add', 'history'].forEach(t => {
+    $('itab-' + t).classList.toggle('active', t === tab);
+    $('itc-' + t).classList.toggle('active', t === tab);
+  });
+}
+function suggestTxPrice() {
+  if ($('txPrice').value) return;
+  const shop = SHOPS.find(s => s.name === $('txShop').value);
+  const p = shop && prices[shop.id];
+  if (!p) return;
+  $('txPrice').value = (($('txType').value === 'buy' ? p.sell : p.buy) / 10).toFixed(2);
+}
+function addTransaction() {
+  const type = $('txType').value, date = $('txDate').value;
+  const qty = parseFloat($('txQty').value), price = parseFloat($('txPrice').value);
+  const fee = parseFloat($('txFee').value) || 0;
+  if (!date) return alert('Vui lòng chọn ngày giao dịch.');
+  if (!(qty > 0)) return alert('Số lượng phải lớn hơn 0.');
+  if (!(price > 0)) return alert('Đơn giá phải lớn hơn 0.');
+  if (type === 'sell' && qty > holdingAt(date, editingId) + 1e-9) {
+    return alert('Số chỉ bán vượt quá số đang nắm giữ tại thời điểm này (' + fmtNum(Math.max(0, holdingAt(date, editingId)), 1) + ' chỉ).');
+  }
+  const tx = { id: editingId || Date.now(), type, date, qty, price, shop: $('txShop').value, fee, note: $('txNote').value.trim() };
+  if (editingId) txList = txList.map(t => t.id === editingId ? tx : t); else txList.push(tx);
+  ss('vt_tx', txList);
+  resetTxForm(); refreshAll(); switchTxTab('history');
+}
+function editTx(id) {
+  const t = txList.find(x => x.id === id); if (!t) return;
+  editingId = id;
+  $('txType').value = t.type; $('txDate').value = t.date; $('txQty').value = t.qty; $('txPrice').value = t.price;
+  $('txShop').value = t.shop || ''; $('txFee').value = t.fee || 0; $('txNote').value = t.note || '';
+  $('btnSubmitTx').textContent = '✓ Cập nhật giao dịch'; $('btnCancelEdit').style.display = '';
+  switchTxTab('add');
+}
+function deleteTx(id) {
+  if (!confirm('Xoá giao dịch này?')) return;
+  txList = txList.filter(t => t.id !== id); ss('vt_tx', txList); refreshAll();
+}
+function renderTxHistory() {
+  const wrap = $('txHistoryWrap');
+  if (!txList.length) {
+    wrap.innerHTML = '<div class="empty-state"><div class="big">📋</div>Chưa có giao dịch nào.<br>Thêm giao dịch đầu tiên ở tab "Thêm mới"</div>';
+    return;
+  }
+  const rows = txList.slice().sort((a, b) => (b.date || '').localeCompare(a.date || '') || b.id - a.id).map(t => {
+    const total = t.qty * t.price;
+    return `<tr>
+      <td>${esc(t.date)}</td>
+      <td><span class="type-${t.type}">${t.type === 'buy' ? 'MUA' : 'BÁN'}</span></td>
+      <td>${esc(t.shop || '—')}</td>
+      <td>${fmtNum(t.qty, 1)}</td>
+      <td>${fmtNum(t.price)}</td>
+      <td>${fmtNum(total)}</td>
+      <td>${t.fee ? fmtNum(t.fee, 0) : '—'}</td>
+      <td style="max-width:140px;overflow:hidden;text-overflow:ellipsis;color:var(--muted)">${esc(t.note || '')}</td>
+      <td><button class="btn-sm" onclick="editTx(${t.id})">Sửa</button> <button class="btn-danger" onclick="deleteTx(${t.id})">Xoá</button></td>
+    </tr>`;
+  }).join('');
+  wrap.innerHTML = `<div class="table-scroll"><table class="tx-table"><thead><tr>
+    <th>Ngày</th><th>Loại</th><th>Cửa hàng</th><th>SL (chỉ)</th><th>Giá (tr/chỉ)</th><th>Tổng (tr)</th><th>Phí (k)</th><th>Ghi chú</th><th></th>
+  </tr></thead><tbody>${rows}</tbody></table></div>`;
+}
+
+// ── Navigation / misc UI ────────────────────────────────────────
+const PAGE_TITLES = { dashboard: 'Dashboard', record: 'Record', market: 'Thị trường' };
+function switchPage(name) {
+  Object.keys(PAGE_TITLES).forEach(p => {
+    $('page-' + p).classList.toggle('active', p === name);
+    $('nav-' + (p === 'market' ? 'market' : p)).classList.toggle('active', p === name);
+  });
+  $('topbarTitle').textContent = PAGE_TITLES[name];
+  if (name === 'market' && !marketLoaded) {
+    marketLoaded = true;
+    mktLoad(mktPeriod);
+    mktLoadPremium().catch(() => {
+      const l = $('mktPremLoading'); if (l) l.innerHTML = '<span style="color:var(--red)">⚠ Không tải được dữ liệu lịch sử.</span>';
+    });
+  }
+}
+function tickClock() {
+  const d = new Date();
+  $('clock').textContent = pad2(d.getHours()) + ':' + pad2(d.getMinutes()) + ':' + pad2(d.getSeconds()) + ' · ' + pad2(d.getDate()) + '/' + pad2(d.getMonth() + 1) + '/' + d.getFullYear();
+}
+function stampNow() {
+  const now = Date.now();
+  Object.keys(prices).forEach(id => { prices[id].ts = now; });
+  ss('vt_prices', prices);
+  $('lastUpdated').textContent = 'Stamp: ' + fmtTime(now);
+  refreshAll();
+}
+function setAutoRefresh(min) {
+  min = parseInt(min, 10) || 0;
+  clearInterval(autoTimer); autoTimer = null;
+  if (min > 0) autoTimer = setInterval(fetchAll, min * 60000);
+  try { localStorage.setItem('vt_auto', String(min)); } catch {}
+}
+function syncInputs() {
+  const w = $('worldPriceUSD'), u = $('usdVnd');
+  if (document.activeElement !== w && worldUSD) w.value = worldUSD;
+  if (document.activeElement !== u && usdVnd) u.value = usdVnd;
+}
+function refreshAll() {
+  syncInputs();
+  renderShopTable();
+  renderSignal();
+  renderShopChart();
+  renderPortfolio();
+  renderTxHistory();
+  ensureSourceGrid();
+}
+
+// ── Fetching prices ─────────────────────────────────────────────
+function showFetch(icon, text, hideAfter) {
+  const bar = $('fetchStatusBar');
+  bar.style.display = 'flex'; $('fetchStatusIcon').textContent = icon; $('fetchStatusText').textContent = text;
+  if (hideAfter) setTimeout(() => { bar.style.display = 'none'; }, hideAfter);
+}
+async function fetchWithTimeout(url, ms = 9000) {
+  const ctl = new AbortController(), t = setTimeout(() => ctl.abort(), ms);
+  try { return await fetch(url, { signal: ctl.signal }); } finally { clearTimeout(t); }
+}
+function shopIdFromName(n) {
+  n = n.normalize('NFC');
+  if (/^SJC/i.test(n)) return 'sjc';
+  if (/DOJI/i.test(n)) return 'doji';
+  if (/PNJ/i.test(n)) return 'pnj';
+  if (/Minh Châu/i.test(n)) return 'btmc';
+  if (/Mi Hồng/i.test(n)) return 'mh';
+  if (/Phú Quý/i.test(n)) return 'pq';
+  if (/Mạnh Hải|Nghĩa/i.test(n)) return 'btn';
+  return null;
+}
+function parseGiavang(html) {
+  // locate the table that follows the last "Nhẫn 1 Chỉ" heading
+  const re = /nhẫn 1 ch/gi; let m, idx = -1;
+  while ((m = re.exec(html))) { if (html.indexOf('<table', m.index) > -1) idx = m.index; }
+  if (idx < 0) return {};
+  const doc = new DOMParser().parseFromString(html.slice(idx), 'text/html');
+  const table = doc.querySelector('table'); if (!table) return {};
+  const out = {};
+  table.querySelectorAll('tr').forEach(tr => {
+    const c = Array.from(tr.querySelectorAll('td,th')).map(x => x.textContent.trim());
+    if (c.length < 3) return;
+    const [name, b, s] = c.slice(-3);
+    const id = shopIdFromName(name); if (!id || out[id]) return;
+    const buy = parseFloat(b.replace(/\./g, '').replace(',', '.')) / 1000;
+    const sell = parseFloat(s.replace(/\./g, '').replace(',', '.')) / 1000;
+    if (buy > 50 && buy < 500 && sell > 50 && sell < 500) out[id] = { buy, sell };
+  });
+  return out;
+}
+async function fetchShopPrices() {
+  if (gasUrl) {
+    try {
+      const j = await (await fetchWithTimeout(gasUrl, 15000)).json();
+      if (j && j.prices && Object.keys(j.prices).length) return { prices: j.prices, world: j.world || {}, via: 'GAS' };
+    } catch {}
+  }
+  const bases = ['', 'https://api.allorigins.win/raw?url=', 'https://corsproxy.io/?'];
+  for (const b of bases) {
+    try {
+      const url = b ? b + encodeURIComponent('https://giavang.org/') : 'https://giavang.org/';
+      const r = await fetchWithTimeout(url);
+      if (!r.ok) continue;
+      const p = parseGiavang(await r.text());
+      if (Object.keys(p).length) return { prices: p, world: {}, via: b ? 'proxy' : 'direct' };
+    } catch {}
+  }
+  return null;
+}
+async function fetchWorld(known) {
+  let xau = known.xauusd, fx = known.usdvnd;
+  if (!xau) {
+    try { const j = await (await fetchWithTimeout('https://api.gold-api.com/price/XAU', 8000)).json(); if (j.price > 100) xau = j.price; } catch {}
+  }
+  if (!fx) {
+    try { const j = await (await fetchWithTimeout('https://open.er-api.com/v6/latest/USD', 8000)).json(); if (j.rates && j.rates.VND) fx = Math.round(j.rates.VND); } catch {}
+  }
+  return { xau, fx };
+}
+async function fetchAll() {
+  const btn = $('btnFetch'); btn.disabled = true;
+  SHOPS.forEach(s => setSrcState(s.id, 'loading', '...'));
+  showFetch('⏳', 'Đang lấy dữ liệu...');
+  try {
+    const res = await fetchShopPrices();
+    const now = Date.now();
+    if (res) {
+      SHOPS.forEach(s => {
+        const p = res.prices[s.id];
+        if (p && p.buy > 50 && p.sell > 50) { prices[s.id] = { buy: p.buy, sell: p.sell, ts: now }; setSrcState(s.id, 'ok', 'OK'); }
+        else setSrcState(s.id, 'fail', prices[s.id] ? 'giữ giá cũ' : 'lỗi');
+      });
+      ss('vt_prices', prices);
+    } else {
+      SHOPS.forEach(s => setSrcState(s.id, 'fail', 'lỗi'));
+    }
+    const w = await fetchWorld(res ? res.world : {});
+    if (w.xau) { worldUSD = w.xau; ss('vt_wusd', worldUSD); }
+    if (w.fx)  { usdVnd = w.fx;   ss('vt_usdvnd', usdVnd); }
+    const t = new Date();
+    $('lastFetchTime').textContent = pad2(t.getHours()) + ':' + pad2(t.getMinutes());
+    $('srcLastUpdate').textContent = res ? res.via : '';
+    if (res) { $('lastUpdated').textContent = 'Cập nhật: ' + fmtTime(now); showFetch('✅', 'Đã cập nhật giá (' + res.via + ')', 4000); }
+    else showFetch('⚠', 'Không lấy được giá — kiểm tra mạng hoặc cấu hình nguồn (⚙ Nguồn). Đang dùng giá cũ.', 8000);
+  } catch (e) {
+    showFetch('⚠', 'Lỗi: ' + e.message, 8000);
+  } finally {
+    btn.disabled = false; refreshAll();
+  }
+}
+
+// ── Wiring ──────────────────────────────────────────────────────
+$('worldPriceUSD').addEventListener('input', e => { worldUSD = parseFloat(e.target.value) || 0; ss('vt_wusd', worldUSD); refreshAll(); });
+$('usdVnd').addEventListener('input', e => { usdVnd = parseFloat(e.target.value) || 0; ss('vt_usdvnd', usdVnd); refreshAll(); });
+$('txShop').addEventListener('change', suggestTxPrice);
+$('txType').addEventListener('change', () => { $('txPrice').value = ''; suggestTxPrice(); });
+tickClock(); setInterval(tickClock, 1000);
+try { const a = localStorage.getItem('vt_auto'); if (a) { $('autoRefreshSel').value = a; setAutoRefresh(a); } } catch {}
+
+cleanPrices();
+seedIfEmpty();
+resetTxForm();
+refreshAll();
+
+// ═══════════════════════════════════════════════════════════════
+// MARKET CHART (Simplize API)
+// ═══════════════════════════════════════════════════════════════
+let mktChart   = null;
+let mktPeriod  = '1M';
+let mktRawData = null; // cache full 1y data, filter client-side
+
+const MKT_TICKERS = {
+  sjc:   'SJC:M1L:SELL',
+  nhan:  'SJC:N9999-05:SELL',
+  world: 'GOLD:TG:VN'
+};
+
+function mktFmt(val) {
+  if (!val) return '—';
+  return Math.round(val).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.') + 'đ';
+}
+
+function mktFmtLabel(ts, period) {
+  const d = new Date(ts * 1000);
+  if (period === '1M') return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit' });
+  return d.toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: '2-digit' });
+}
+
+async function mktFetchTicker(ticker, period) {
+  const res = await fetch(
+    `https://api2.simplize.vn/api/historical/prices/chart?ticker=${encodeURIComponent(ticker)}&period=${period}`
+  );
+  const json = await res.json();
+  return json.data || [];
+}
+
+async function mktLoad(period) {
+  document.getElementById('mktLoading').style.display = 'flex';
+  document.getElementById('mktChartWrap').style.display = 'none';
+
+  try {
+    // Fetch full 1y once, then filter client-side (API ignores period param)
+    if (!mktRawData) {
+      const [s, n, w] = await Promise.all([
+        mktFetchTicker(MKT_TICKERS.sjc,   '1y'),
+        mktFetchTicker(MKT_TICKERS.nhan,  '1y'),
+        mktFetchTicker(MKT_TICKERS.world, '1y'),
+      ]);
+      mktRawData = { sjc: s, nhan: n, world: w };
+    }
+
+    // Client-side filter
+    const DAYS = { '1M': 30, '3M': 90, '6M': 180, '1y': 365 };
+    const cutoff = Date.now() / 1000 - (DAYS[period] || 365) * 86400;
+    const sjcData   = mktRawData.sjc.filter(d   => d[0] >= cutoff);
+    const nhanData  = mktRawData.nhan.filter(d  => d[0] >= cutoff);
+    const worldData = mktRawData.world.filter(d => d[0] >= cutoff);
+
+    const labels = sjcData.map(d => mktFmtLabel(d[0], period));
+
+    const nhanMap  = {};
+    const worldMap = {};
+    nhanData.forEach(d  => { nhanMap[d[0]]  = d[4]; });
+    worldData.forEach(d => { worldMap[d[0]] = d[4]; });
+
+    const sjcPrices   = sjcData.map(d => d[4]);
+    const nhanPrices  = sjcData.map(d => nhanMap[d[0]]  ?? null);
+    const worldPrices = sjcData.map(d => worldMap[d[0]] ?? null);
+
+    // Update price cards
+    const lastSjc   = sjcPrices.filter(Boolean).at(-1);
+    const lastNhan  = nhanPrices.filter(Boolean).at(-1);
+    const lastWorld = worldPrices.filter(Boolean).at(-1);
+
+    document.getElementById('mktPriceSjc').textContent   = mktFmt(lastSjc);
+    document.getElementById('mktPriceNhan').textContent  = mktFmt(lastNhan);
+    document.getElementById('mktPriceWorld').textContent = mktFmt(lastWorld);
+
+    const premEl = document.getElementById('mktPremium');
+    if (lastSjc && lastWorld && lastWorld > 0) {
+      const prem = (lastSjc - lastWorld) / lastWorld * 100;
+      premEl.textContent = (prem > 0 ? '+' : '') + prem.toFixed(1) + '%';
+      premEl.className = 'metric-value ' + (prem < 3 ? 'color-green' : prem < 6 ? 'color-gold' : 'color-red');
+    } else {
+      premEl.textContent = '—';
+    }
+
+    const datasets = [
+      {
+        label: 'Vàng miếng SJC',
+        data: sjcPrices,
+        borderColor: '#f0b429',
+        backgroundColor: 'rgba(240,180,41,0.07)',
+        borderWidth: 2, tension: 0.3, pointRadius: 0, pointHoverRadius: 5,
+        fill: false, spanGaps: true,
+      },
+      {
+        label: 'Vàng nhẫn SJC',
+        data: nhanPrices,
+        borderColor: '#60a5fa',
+        backgroundColor: 'rgba(96,165,250,0.07)',
+        borderWidth: 2, tension: 0.3, pointRadius: 0, pointHoverRadius: 5,
+        fill: false, spanGaps: true,
+      },
+      {
+        label: 'Vàng TG (quy VNĐ)',
+        data: worldPrices,
+        borderColor: '#06d6a0',
+        backgroundColor: 'rgba(6,214,160,0.07)',
+        borderWidth: 2, tension: 0.3, pointRadius: 0, pointHoverRadius: 5,
+        fill: false, spanGaps: true,
+      },
+    ];
+
+    document.getElementById('mktLoading').style.display  = 'none';
+    document.getElementById('mktChartWrap').style.display = 'block';
+
+    if (mktChart) {
+      mktChart.data.labels = labels;
+      mktChart.data.datasets.forEach((ds, i) => { ds.data = datasets[i].data; });
+      mktChart.update();
+    } else {
+      const ctx = document.getElementById('mktChart').getContext('2d');
+      mktChart = new Chart(ctx, {
+        type: 'line',
+        data: { labels, datasets },
+        options: {
+          responsive: true, maintainAspectRatio: false,
+          interaction: { mode: 'index', intersect: false },
+          plugins: {
+            legend: { display: false },
+            tooltip: {
+              backgroundColor: '#16161d',
+              borderColor: '#2a2a38',
+              borderWidth: 1,
+              titleColor: '#7a7a9a',
+              bodyColor: '#e8e8f0',
+              padding: 12,
+              callbacks: {
+                label: ctx => {
+                  const v = ctx.raw;
+                  if (!v) return null;
+                  return ` ${ctx.dataset.label}: ${mktFmt(v)}`;
+                }
+              }
+            }
+          },
+          scales: {
+            x: {
+              grid: { color: '#1e1e2a' },
+              ticks: { color: '#7a7a9a', maxTicksLimit: 8, maxRotation: 0, font: { size: 10 } }
+            },
+            y: {
+              grid: { color: '#1e1e2a' },
+              ticks: {
+                color: '#7a7a9a', font: { size: 10 },
+                callback: v => (v / 1e6).toFixed(0) + 'M'
+              }
+            }
+          }
+        }
+      });
+    }
+  } catch (e) {
+    document.getElementById('mktLoading').innerHTML =
+      '<span style="color:var(--red)">⚠ Không tải được dữ liệu. Kiểm tra kết nối mạng.</span>';
+  }
+}
+
+function mktSetPeriod(btn, p) {
+  mktPeriod = p;
+  document.querySelectorAll('.mkt-period').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (mktChart) { mktChart.destroy(); mktChart = null; }
+  mktLoad(p);
+}
+
+function mktToggle(idx, el) {
+  if (!mktChart) return;
+  const ds = mktChart.data.datasets[idx];
+  ds.hidden = !ds.hidden;
+  mktChart.update();
+  el.style.opacity = ds.hidden ? '0.3' : '1';
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PREMIUM TRACKING TABLE
+// ═══════════════════════════════════════════════════════════════
+let mktPremData   = null;   // cached [{ts,date,sjc,world,premVnd,premPct}]
+let mktPremView   = 'year'; // 'year' | 'month' | 'week'
+
+function mktFmtPremVnd(n) {
+  if (!n && n !== 0) return '—';
+  const abs = Math.round(Math.abs(n)).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return (n >= 0 ? '+' : '-') + abs + 'đ';
+}
+function mktFmtPremPct(n) {
+  if (!n && n !== 0) return '—';
+  return (n >= 0 ? '+' : '') + n.toFixed(1) + '%';
+}
+function mktPremColor(n) {
+  // n = VNĐ value
+  if (!n && n !== 0) return 'var(--muted)';
+  if (n < 0)   return '#06d6a0';
+  if (n < 3e6) return '#06d6a0';
+  if (n < 8e6) return '#f0b429';
+  return '#ef4444';
+}
+function mktPremColorPct(p) {
+  // p = % value
+  if (!p && p !== 0) return 'var(--muted)';
+  if (p < 0) return '#06d6a0';
+  if (p < 3) return '#06d6a0';
+  if (p < 8) return '#f0b429';
+  return '#ef4444';
+}
+
+async function mktLoadPremium() {
+  // Fetch all-time (monthly) + 1y (daily) for both SJC and WORLD
+  const [sjcAll, wldAll, sjc1y, wld1y] = await Promise.all([
+    mktFetchTicker(MKT_TICKERS.sjc,   'all'),
+    mktFetchTicker(MKT_TICKERS.world, 'all'),
+    mktFetchTicker(MKT_TICKERS.sjc,   '1y'),
+    mktFetchTicker(MKT_TICKERS.world, '1y'),
+  ]);
+
+  // Build lookup maps: timestamp → close price
+  const wldAllMap = {}, wld1yMap = {};
+  wldAll.forEach(d => { if (d[4]) wldAllMap[d[0]] = d[4]; });
+  wld1y.forEach(d  => { if (d[4]) wld1yMap[d[0]]  = d[4]; });
+
+  // Merge all-time (monthly) with 1y (daily) — daily takes priority for recent points
+  const pointMap = {};
+
+  // 1. Add all-time monthly points
+  sjcAll.forEach(d => {
+    const sjcPrice = d[4];
+    const wldPrice = wldAllMap[d[0]];
+    if (!sjcPrice || !wldPrice) return;
+    const premVnd = sjcPrice - wldPrice;
+    const premPct = premVnd / wldPrice * 100;
+    pointMap[d[0]] = { ts: d[0], date: new Date(d[0]*1000), sjc: sjcPrice, world: wldPrice, premVnd, premPct };
+  });
+
+  // 2. Override/add with 1y daily data (higher resolution)
+  sjc1y.forEach(d => {
+    const sjcPrice = d[4];
+    const wldPrice = wld1yMap[d[0]];
+    if (!sjcPrice || !wldPrice) return;
+    const premVnd = sjcPrice - wldPrice;
+    const premPct = premVnd / wldPrice * 100;
+    pointMap[d[0]] = { ts: d[0], date: new Date(d[0]*1000), sjc: sjcPrice, world: wldPrice, premVnd, premPct };
+  });
+
+  mktPremData = Object.values(pointMap).sort((a,b) => a.ts - b.ts);
+
+  // Render ATH/ATL summary
+  let ath = mktPremData[0], atl = mktPremData[0];
+  let athPct = mktPremData[0], atlPct = mktPremData[0];
+  mktPremData.forEach(p => {
+    if (p.premVnd > ath.premVnd) ath = p;
+    if (p.premVnd < atl.premVnd) atl = p;
+    if (p.premPct > athPct.premPct) athPct = p;
+    if (p.premPct < atlPct.premPct) atlPct = p;
+  });
+
+  const fmDate = d => d.toLocaleDateString('vi-VN', {day:'2-digit',month:'2-digit',year:'numeric'});
+
+  document.getElementById('athVnd').textContent     = mktFmtPremVnd(ath.premVnd);
+  document.getElementById('athVnd').style.color     = '#ef4444';
+  document.getElementById('athVndDate').textContent = fmDate(ath.date);
+  document.getElementById('atlVnd').textContent     = mktFmtPremVnd(atl.premVnd);
+  document.getElementById('atlVnd').style.color     = '#06d6a0';
+  document.getElementById('atlVndDate').textContent = fmDate(atl.date);
+  document.getElementById('athPct').textContent     = mktFmtPremPct(athPct.premPct);
+  document.getElementById('athPctDate').textContent = fmDate(athPct.date);
+  document.getElementById('atlPct').textContent     = mktFmtPremPct(atlPct.premPct);
+  document.getElementById('atlPctDate').textContent = fmDate(atlPct.date);
+
+  mktRenderPremTable(mktPremView);
+}
+
+function mktGroupStats(points) {
+  // Returns {max, maxDate, min, minDate, avg, maxPct, minPct, avgPct, count}
+  let max = -Infinity, min = Infinity, maxDate, minDate, sumVnd = 0, sumPct = 0, maxPct = -Infinity, minPct = Infinity, count = 0;
+  points.forEach(p => {
+    count++;
+    sumVnd += p.premVnd;
+    sumPct += p.premPct;
+    if (p.premVnd > max) { max = p.premVnd; maxDate = p.date; }
+    if (p.premVnd < min) { min = p.premVnd; minDate = p.date; }
+    if (p.premPct > maxPct) maxPct = p.premPct;
+    if (p.premPct < minPct) minPct = p.premPct;
+  });
+  return { max, maxDate, min, minDate, avg: sumVnd/count, maxPct, minPct, avgPct: sumPct/count, count };
+}
+
+function mktRenderPremTable(view) {
+  if (!mktPremData) return;
+
+  document.getElementById('mktPremLoading').style.display   = 'none';
+  document.getElementById('mktPremTableWrap').style.display = 'block';
+
+  const thead = document.getElementById('mktPremThead');
+  const tbody = document.getElementById('mktPremTbody');
+  const fmDate = d => d ? d.toLocaleDateString('vi-VN', {day:'2-digit',month:'2-digit',year:'2-digit'}) : '—';
+
+  thead.innerHTML = `<tr>
+    <th style="text-align:left">Kỳ</th>
+    <th>Cao nhất</th><th>Ngày ATH</th>
+    <th>Thấp nhất</th><th>Ngày ATL</th>
+    <th>Trung bình</th>
+    <th>TB %</th><th>High %</th><th>Low %</th>
+    <th style="text-align:right;color:var(--muted);font-weight:400">Điểm DL</th>
+  </tr>`;
+
+  if (view === 'year') {
+    // Group by year
+    const groups = {};
+    mktPremData.forEach(p => {
+      const y = p.date.getFullYear();
+      if (!groups[y]) groups[y] = [];
+      groups[y].push(p);
+    });
+    const years = Object.keys(groups).sort((a,b) => b-a);
+    tbody.innerHTML = years.map(y => {
+      const s = mktGroupStats(groups[y]);
+      const isCurrentYear = +y === new Date().getFullYear();
+      return `<tr ${isCurrentYear ? 'style="background:rgba(240,180,41,0.04)"' : ''}>
+        <td><strong style="color:${isCurrentYear?'#f0b429':'var(--text)'}">${y}</strong>${isCurrentYear?' <span style="font-size:9px;background:rgba(240,180,41,0.15);color:#f0b429;border-radius:3px;padding:1px 5px">HT</span>':''}</td>
+        <td style="color:#ef4444;text-align:right;font-weight:600">${mktFmtPremVnd(s.max)}</td>
+        <td style="text-align:right;color:var(--muted);font-size:11px">${fmDate(s.maxDate)}</td>
+        <td style="color:#06d6a0;text-align:right;font-weight:600">${mktFmtPremVnd(s.min)}</td>
+        <td style="text-align:right;color:var(--muted);font-size:11px">${fmDate(s.minDate)}</td>
+        <td style="text-align:right;color:${mktPremColor(s.avg)}">${mktFmtPremVnd(s.avg)}</td>
+        <td style="text-align:right;color:${mktPremColorPct(s.avgPct)}">${mktFmtPremPct(s.avgPct)}</td>
+        <td style="text-align:right;color:#ef4444;font-size:11px">${mktFmtPremPct(s.maxPct)}</td>
+        <td style="text-align:right;color:#06d6a0;font-size:11px">${mktFmtPremPct(s.minPct)}</td>
+        <td style="text-align:right;color:var(--muted);font-size:10px">${s.count}</td>
+      </tr>`;
+    }).join('');
+
+  } else if (view === 'month') {
+    // Last 12 months from daily data
+    const groups = {};
+    mktPremData.forEach(p => {
+      const k = `${p.date.getFullYear()}-${String(p.date.getMonth()+1).padStart(2,'0')}`;
+      if (!groups[k]) groups[k] = [];
+      groups[k].push(p);
+    });
+    const keys = Object.keys(groups).sort((a,b) => b.localeCompare(a)).slice(0, 36);
+    const MONTHS_VI = ['','T1','T2','T3','T4','T5','T6','T7','T8','T9','T10','T11','T12'];
+    tbody.innerHTML = keys.map(k => {
+      const [y, m] = k.split('-');
+      const s = mktGroupStats(groups[k]);
+      const isNow = k === `${new Date().getFullYear()}-${String(new Date().getMonth()+1).padStart(2,'0')}`;
+      return `<tr ${isNow ? 'style="background:rgba(240,180,41,0.04)"' : ''}>
+        <td><strong style="color:${isNow?'#f0b429':'var(--text)'}">${MONTHS_VI[+m]} ${y}</strong>${isNow?' <span style="font-size:9px;background:rgba(240,180,41,0.15);color:#f0b429;border-radius:3px;padding:1px 5px">HT</span>':''}</td>
+        <td style="color:#ef4444;text-align:right;font-weight:600">${mktFmtPremVnd(s.max)}</td>
+        <td style="text-align:right;color:var(--muted);font-size:11px">${fmDate(s.maxDate)}</td>
+        <td style="color:#06d6a0;text-align:right;font-weight:600">${mktFmtPremVnd(s.min)}</td>
+        <td style="text-align:right;color:var(--muted);font-size:11px">${fmDate(s.minDate)}</td>
+        <td style="text-align:right;color:${mktPremColor(s.avg)}">${mktFmtPremVnd(s.avg)}</td>
+        <td style="text-align:right;color:${mktPremColorPct(s.avgPct)}">${mktFmtPremPct(s.avgPct)}</td>
+        <td style="text-align:right;color:#ef4444;font-size:11px">${mktFmtPremPct(s.maxPct)}</td>
+        <td style="text-align:right;color:#06d6a0;font-size:11px">${mktFmtPremPct(s.minPct)}</td>
+        <td style="text-align:right;color:var(--muted);font-size:10px">${s.count}</td>
+      </tr>`;
+    }).join('');
+
+  } else if (view === 'week') {
+    // Group by ISO week (last 52 weeks from 1y daily data)
+    const recentData = mktPremData.filter(p => p.ts > (Date.now()/1000 - 365*86400));
+    const groups = {};
+    recentData.forEach(p => {
+      // Get ISO week key: YYYY-Www
+      const d = new Date(p.ts * 1000);
+      const jan4 = new Date(d.getFullYear(), 0, 4);
+      const weekNum = Math.ceil(((d - jan4) / 86400000 + jan4.getDay() + 1) / 7);
+      const k = `${d.getFullYear()}-W${String(weekNum).padStart(2,'0')}`;
+      if (!groups[k]) groups[k] = [];
+      groups[k].push(p);
+    });
+    const keys = Object.keys(groups).sort((a,b) => b.localeCompare(a)).slice(0, 52);
+    tbody.innerHTML = keys.map((k, i) => {
+      const s = mktGroupStats(groups[k]);
+      const pts = groups[k].sort((a,b) => a.ts - b.ts);
+      const fromD = fmDate(pts[0].date);
+      const toD   = fmDate(pts[pts.length-1].date);
+      const isNow = i === 0;
+      return `<tr ${isNow ? 'style="background:rgba(240,180,41,0.04)"' : ''}>
+        <td>
+          <strong style="color:${isNow?'#f0b429':'var(--text)'}">${k}</strong>${isNow?' <span style="font-size:9px;background:rgba(240,180,41,0.15);color:#f0b429;border-radius:3px;padding:1px 5px">HT</span>':''}
+          <div style="font-size:10px;color:var(--muted)">${fromD} – ${toD}</div>
+        </td>
+        <td style="color:#ef4444;text-align:right;font-weight:600">${mktFmtPremVnd(s.max)}</td>
+        <td style="text-align:right;color:var(--muted);font-size:11px">${fmDate(s.maxDate)}</td>
+        <td style="color:#06d6a0;text-align:right;font-weight:600">${mktFmtPremVnd(s.min)}</td>
+        <td style="text-align:right;color:var(--muted);font-size:11px">${fmDate(s.minDate)}</td>
+        <td style="text-align:right;color:${mktPremColor(s.avg)}">${mktFmtPremVnd(s.avg)}</td>
+        <td style="text-align:right;color:${mktPremColorPct(s.avgPct)}">${mktFmtPremPct(s.avgPct)}</td>
+        <td style="text-align:right;color:#ef4444;font-size:11px">${mktFmtPremPct(s.maxPct)}</td>
+        <td style="text-align:right;color:#06d6a0;font-size:11px">${mktFmtPremPct(s.minPct)}</td>
+        <td style="text-align:right;color:var(--muted);font-size:10px">${s.count}</td>
+      </tr>`;
+    }).join('');
+  }
+}
+
+function mktPremTab(btn, view) {
+  mktPremView = view;
+  document.querySelectorAll('.mkt-prem-tab').forEach(b => b.classList.remove('active'));
+  btn.classList.add('active');
+  if (mktPremData) mktRenderPremTable(view);
+}
+</script>
+<!-- GAS SETUP MODAL -->
+<div id="gasModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.75);z-index:200;align-items:center;justify-content:center">
+  <div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:24px;max-width:500px;width:92%;position:relative">
+    <button onclick="closeGasModal()" style="position:absolute;top:12px;right:14px;background:none;border:none;color:var(--muted);font-size:18px;cursor:pointer">✕</button>
+    <div style="font-size:15px;font-weight:700;color:var(--gold);margin-bottom:14px">⚙ Cấu hình nguồn dữ liệu</div>
+
+    <div style="font-size:12px;color:var(--muted);line-height:1.8;margin-bottom:14px">
+      Hiện tại tool thử lấy giá theo thứ tự:<br>
+      <span style="color:var(--green)">1.</span> Direct fetch (không proxy)<br>
+      <span style="color:var(--gold)">2.</span> CORS proxy (allorigins, corsproxy.io…)<br>
+      <span style="color:var(--blue)">3.</span> Google Apps Script URL (nếu bạn có cấu hình)
+    </div>
+
+    <div style="background:var(--bg3);border-radius:8px;padding:14px;margin-bottom:14px;border:1px solid var(--border)">
+      <div style="font-size:11px;font-weight:700;color:var(--text);margin-bottom:8px">📌 Google Apps Script URL (khuyên dùng)</div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:8px">Ổn định nhất, không bị CORS. Setup ~10 phút, miễn phí.</div>
+      <input id="gasUrlInput" type="text" class="form-input" placeholder="https://script.google.com/macros/s/..." style="font-size:12px;margin-bottom:8px">
+      <button class="btn-primary" style="padding:7px" onclick="saveGasUrl()">💾 Lưu URL</button>
+    </div>
+
+    <details style="font-size:11px;color:var(--muted);cursor:pointer">
+      <summary style="color:var(--blue);font-weight:600;margin-bottom:8px">📋 Cách tạo Google Apps Script (bấm để xem)</summary>
+      <div style="background:var(--bg3);border-radius:6px;padding:12px;line-height:1.9;border:1px solid var(--border);margin-top:8px">
+        <strong style="color:var(--text)">Bước 1:</strong> Mở <a href="https://script.google.com" target="_blank" style="color:var(--blue)">script.google.com</a> → New project<br>
+        <strong style="color:var(--text)">Bước 2:</strong> Xoá code mặc định, paste code bên dưới<br>
+        <strong style="color:var(--text)">Bước 3:</strong> Deploy → New deployment → Web app → Execute as: Me → Who has access: Anyone → Deploy<br>
+        <strong style="color:var(--text)">Bước 4:</strong> Copy URL, paste vào ô trên<br><br>
+        <div style="font-family:monospace;font-size:10px;background:#0a0a10;padding:10px;border-radius:6px;color:#aaf;overflow-x:auto;white-space:pre">function doGet(e) {
+  var shop = e.parameter.shop || 'sjc';
+  var result = {};
+
+  try {
+    if (shop === 'sjc') {
+      var xml = UrlFetchApp.fetch('https://sjc.com.vn/xml/tygiavang.xml').getContentText();
+      var doc = XmlService.parse(xml);
+      var items = doc.getRootElement().getChildren();
+      for (var i = 0; i &lt; items.length; i++) {
+        var name = items[i].getAttribute('type') ?
+          items[i].getAttribute('type').getValue() : items[i].getText();
+        if (/nh[aâ]n|999/i.test(name)) {
+          result.buy  = parseFloat(items[i].getAttribute('buy').getValue());
+          result.sell = parseFloat(items[i].getAttribute('sell') ?
+            items[i].getAttribute('sell').getValue() :
+            items[i].getAttribute('h') ? items[i].getAttribute('h').getValue() : 0);
+          break;
+        }
+      }
+    }
+  } catch(err) { result.error = err.message; }
+
+  return ContentService
+    .createTextOutput(JSON.stringify(result))
+    .setMimeType(ContentService.MimeType.JSON);
+}</div>
+      </div>
+    </details>
+  </div>
+</div>
+
+<script>
+function showGasModal() {
+  document.getElementById('gasUrlInput').value = gasUrl || '';
+  const m = document.getElementById('gasModal');
+  m.style.display = 'flex';
+}
+function closeGasModal() {
+  document.getElementById('gasModal').style.display = 'none';
+}
+function saveGasUrl() {
+  gasUrl = document.getElementById('gasUrlInput').value.trim();
+  localStorage.setItem('vt_gasUrl', gasUrl);
+  closeGasModal();
+  if (gasUrl) { alert('✅ Đã lưu GAS URL. Nhấn "Lấy giá" để test.'); }
+}
+document.getElementById('gasModal').addEventListener('click', function(e) {
+  if (e.target === this) closeGasModal();
+});
+</script>
+
+</body>
+</html>
